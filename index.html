@@ -2,15 +2,25 @@
   async function getStockPrice() {
     const symbol = document.getElementById("symbol").value.toUpperCase().trim();
     const resultDiv = document.getElementById("result");
-    if (!symbol) return resultDiv.textContent = "Veuillez entrer un symbole boursier.";
+    if (!symbol) {
+      resultDiv.textContent = "Veuillez entrer un symbole boursier.";
+      return;
+    }
 
     resultDiv.textContent = "Chargement...";
 
     try {
-      const apiKey = "d47squhr01qk80bicmq0d47squhr01qk80bicmqg"; // <-- ta clé API entre guillemets !
+      const apiKey = "d47squhr01qk80bicmq0d47squhr01qk80bicmqg"; // ✅ ta clé API entre guillemets
       const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
+      console.log("URL de requête :", url); // 👀 utile pour le debug
       const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP ${response.status}`);
+      }
+
       const data = await response.json();
+      console.log("Réponse API :", data); // 👀 on voit ce que l’API renvoie dans la console
 
       if (!data.c) {
         resultDiv.textContent = "Aucune donnée trouvée pour ce symbole.";
@@ -26,7 +36,7 @@
         Variation : ${(data.d ?? 0).toFixed(2)} (${(data.dp ?? 0).toFixed(2)}%)
       `;
     } catch (error) {
-      console.error(error);
+      console.error("Erreur :", error);
       resultDiv.textContent = "Erreur lors de la récupération des données.";
     }
   }
