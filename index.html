@@ -7,7 +7,7 @@
     resultDiv.textContent = "Chargement...";
 
     try {
-      const apiKey = "d47squhr01qk80bicmq0d47squhr01qk80bicmqg"; // <-- Mets ta clé Finnhub ici
+      const apiKey = "d47squhr01qk80bicmq0d47squhr01qk80bicmqg"; // <-- ta clé API entre guillemets !
       const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
       const response = await fetch(url);
       const data = await response.json();
