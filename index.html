@@ -44,6 +44,7 @@ const apiKey = 'BUJ9ONXMDU2BK43K';
 let watchlist = JSON.parse(localStorage.getItem('watchlist')) || [];
 updateWatchlistTable();
 
+// Ajouter un symbole à la liste
 async function addSymbol() {
     const input = document.getElementById("symbol");
     const symbol = input.value.toUpperCase().trim();
@@ -60,21 +61,29 @@ async function addSymbol() {
 async function updateWatchlistTable() {
     const tbody = document.querySelector("#watchlist-table tbody");
     tbody.innerHTML = '';
-    for (const item of watchlist) {
-        const quote = await getStockQuote(item.symbol);
-        const name = await getSymbolName(item.symbol);
-        const row = document.createElement('tr');
 
+    watchlist.forEach(async (item) => {
+        const row = document.createElement('tr');
         row.innerHTML = `
             <td>${item.symbol}</td>
-            <td>${name || '-'}</td>
-            <td>${quote ? parseFloat(quote["05. price"]).toFixed(2) : '-'}</td>
+            <td class="name">-</td>
+            <td class="price">-</td>
             <td><input type="number" value="${item.shares}" min="0" onchange="updateShares('${item.symbol}', this.value)"></td>
-            <td>${quote ? (item.shares * (item.dividend || 0)).toFixed(2) : '-'}</td>
+            <td class="dividend">-</td>
         `;
-
         tbody.appendChild(row);
-    }
+
+        // récupérer le cours
+        const quote = await getStockQuote(item.symbol);
+        const name = await getSymbolName(item.symbol);
+        const priceCell = row.querySelector('.price');
+        const nameCell = row.querySelector('.name');
+        const dividendCell = row.querySelector('.dividend');
+
+        if (quote) priceCell.textContent = parseFloat(quote["05. price"]).toFixed(2);
+        if (name) nameCell.textContent = name;
+        dividendCell.textContent = item.shares && quote ? (item.shares * (item.dividend || 0)).toFixed(2) : '0';
+    });
 }
 
 // Mettre à jour le nombre d'actions
@@ -114,10 +123,6 @@ async function getSymbolName(symbol) {
         return '';
     }
 }
-
-// Optionnel : tu peux pré-remplir un dividende fixe pour chaque action si tu veux
-// watchlist[i].dividend = 1.5;
-
 </script>
 
 </body>
