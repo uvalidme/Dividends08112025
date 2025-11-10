@@ -64,7 +64,6 @@ async function updateWatchlistTable() {
     tbody.innerHTML = '';
 
     watchlist.forEach(async (item) => {
-        // valeurs par défaut sûres
         const sharesValue = Number(item.shares) || 0;
         const dividendValue = Number(item.dividend) || 0;
 
@@ -79,15 +78,22 @@ async function updateWatchlistTable() {
         `;
         tbody.appendChild(row);
 
-        // récupérer le cours et le nom de l'action
+        // récupérer le cours de l'action
         const quote = await getStockQuote(item.symbol);
-        const name = await getSymbolName(item.symbol);
         const priceCell = row.querySelector('.price');
         const nameCell = row.querySelector('.name');
         const totalDividendCell = row.querySelector('.total-dividend');
 
-        if (quote && quote["05. price"]) priceCell.textContent = parseFloat(quote["05. price"]).toFixed(2);
-        if (name) nameCell.textContent = name;
+        // afficher le prix si disponible
+        if (quote && quote["05. price"]) {
+            priceCell.textContent = parseFloat(quote["05. price"]).toFixed(2);
+        } else {
+            priceCell.textContent = "-";
+        }
+
+        // récupérer le nom de l'action
+        const name = await getSymbolName(item.symbol);
+        nameCell.textContent = name || item.symbol; // fallback au symbole
 
         // calcul du total dividendes
         totalDividendCell.textContent = (sharesValue * dividendValue).toFixed(2);
@@ -128,7 +134,7 @@ async function getStockQuote(symbol) {
     }
 }
 
-// Récupérer le nom complet de l’action
+// Récupérer le nom complet de l’action (fallback possible)
 async function getSymbolName(symbol) {
     try {
         const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${symbol}&apikey=${apiKey}`;
