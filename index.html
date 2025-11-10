@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mon Suivi Boursier</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 60px;
+    }
+    h1 { color: #333; }
+    input { padding: 8px; font-size: 16px; }
+    button {
+      padding: 8px 12px;
+      margin-left: 5px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background-color: #0056b3; }
+    #result { margin-top: 30px; font-size: 20px; color: #222; }
+  </style>
+</head>
+<body>
+  <h1>📈 Mon Suivi Boursier</h1>
+  <div>
+    <input type="text" id="symbol" placeholder="Ex : AAPL, Derichebourg, LVMH..." />
+    <button onclick="getStockPrice()">Voir le cours</button>
+  </div>
+  <div id="result"></div>
+
+  <script>
+    // Dictionnaire symboles connus
+    const companyMap = {
+      "DERICHEBOURG": "DBG.PA",
+      "LVMH": "MC.PA",
+      "BNP": "BNP.PA",
+      "BNP PARIBAS": "BN
