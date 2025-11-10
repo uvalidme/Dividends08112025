@@ -64,22 +64,22 @@ async function updateWatchlistTable() {
     tbody.innerHTML = '';
 
     watchlist.forEach(async (item) => {
-        // Forcer des valeurs numériques
-        item.shares = Number(item.shares) || 0;
-        item.dividend = Number(item.dividend) || 0;
+        // valeurs par défaut sûres
+        const sharesValue = Number(item.shares) || 0;
+        const dividendValue = Number(item.dividend) || 0;
 
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${item.symbol}</td>
             <td class="name">-</td>
             <td class="price">-</td>
-            <td><input type="number" value="${item.shares}" min="0" onchange="updateShares('${item.symbol}', this.value)"></td>
-            <td><input type="number" value="${item.dividend}" min="0" step="0.01" onchange="updateDividend('${item.symbol}', this.value)"></td>
+            <td><input type="number" value="${sharesValue}" min="0" onchange="updateShares('${item.symbol}', this.value)"></td>
+            <td><input type="number" value="${dividendValue}" min="0" step="0.01" onchange="updateDividend('${item.symbol}', this.value)"></td>
             <td class="total-dividend">0</td>
         `;
         tbody.appendChild(row);
 
-        // récupérer le cours
+        // récupérer le cours et le nom de l'action
         const quote = await getStockQuote(item.symbol);
         const name = await getSymbolName(item.symbol);
         const priceCell = row.querySelector('.price');
@@ -90,7 +90,7 @@ async function updateWatchlistTable() {
         if (name) nameCell.textContent = name;
 
         // calcul du total dividendes
-        totalDividendCell.textContent = (item.shares * item.dividend).toFixed(2);
+        totalDividendCell.textContent = (sharesValue * dividendValue).toFixed(2);
     });
 }
 
