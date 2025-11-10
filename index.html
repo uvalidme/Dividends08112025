@@ -63,6 +63,10 @@ async function updateWatchlistTable() {
     tbody.innerHTML = '';
 
     watchlist.forEach(async (item) => {
+        // S'assurer que shares et dividend ne sont jamais undefined
+        item.shares = Number(item.shares) || 0;
+        item.dividend = Number(item.dividend) || 0;
+
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${item.symbol}</td>
@@ -80,7 +84,7 @@ async function updateWatchlistTable() {
         const nameCell = row.querySelector('.name');
         const dividendCell = row.querySelector('.dividend');
 
-        if (quote) priceCell.textContent = parseFloat(quote["05. price"]).toFixed(2);
+        if (quote && quote["05. price"]) priceCell.textContent = parseFloat(quote["05. price"]).toFixed(2);
         if (name) nameCell.textContent = name;
         dividendCell.textContent = item.shares && quote ? (item.shares * (item.dividend || 0)).toFixed(2) : '0';
     });
@@ -90,7 +94,7 @@ async function updateWatchlistTable() {
 function updateShares(symbol, value) {
     const index = watchlist.findIndex(s => s.symbol === symbol);
     if (index >= 0) {
-        watchlist[index].shares = parseFloat(value) || 0;
+        watchlist[index].shares = Number(value) || 0;
         localStorage.setItem('watchlist', JSON.stringify(watchlist));
         updateWatchlistTable();
     }
