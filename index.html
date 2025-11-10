@@ -1,200 +1,57 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Suivi Bourse avec Dividendes (Proxy)</title>
-<style>
-body { font-family: Arial, sans-serif; margin: 30px; background: #f4f4f4; color: #333; }
-h1, h2 { color: #2c3e50; }
-input, button { padding: 6px 8px; font-size: 14px; }
-button { cursor: pointer; border: 1px solid #ccc; border-radius: 3px; }
-#result { margin-top: 20px; padding: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
-table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
-th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
-th { background: #f0f0f0; }
-input[type="number"] { width: 70px; text-align: right; }
-.delete-btn { background: #e74c3c; color: white; border: none; padding: 4px 8px; font-size: 12px; }
-</style>
-</head>
-<body>
-
-<h1>📈 Suivi Bourse avec Dividendes</h1>
-
-<input type="text" id="symbol" placeholder="Symbole ex: AAPL">
-<button onclick="addSymbol()">Ajouter Symbole</button>
-<button onclick="updateAllQuotes()" style="background: #2ecc71; color: white;">Actualiser les Cours</button>
-
-<div id="result"></div>
-
-<h2>Liste de suivi</h2>
-<table id="watchlist-table">
-<thead>
-<tr>
-    <th>Symbole</th>
-    <th>Cours (€/$)</th>
-    <th>Actions détenues</th>
-    <th>Dividende par action</th>
-    <th>Total Dividendes</th>
-    <th>Action</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-
-<script>
-// URL de base de votre serveur proxy (assurez-vous qu'il tourne sur ce port)
-const PROXY_URL = 'http://localhost:3000'; 
-let watchlist = JSON.parse(localStorage.getItem('watchlist')) || [];
-updateWatchlistTable();
-updateAllQuotes(); // Chargement initial des cours
-
-// --- FONCTIONS DE GESTION DES DONNÉES LOCALES ---
-
-// Mettre à jour le nombre d'actions
-function updateShares(symbol, value) {
-    const index = watchlist.findIndex(s => s.symbol === symbol);
-    const numericValue = Number(value) || 0;
-    if (index >= 0) {
-        watchlist[index].shares = numericValue;
-        localStorage.setItem('watchlist', JSON.stringify(watchlist));
-        updateRowCalculation(symbol); // Mise à jour de la ligne spécifique
-    }
-}
-
-// Mettre à jour le dividende par action
-function updateDividend(symbol, value) {
-    const index = watchlist.findIndex(s => s.symbol === symbol);
-    const numericValue = Number(value) || 0;
-    if (index >= 0) {
-        watchlist[index].dividend = numericValue;
-        localStorage.setItem('watchlist', JSON.stringify(watchlist));
-        updateRowCalculation(symbol); // Mise à jour de la ligne spécifique
-    }
-}
-
-// Supprimer un symbole
-function deleteSymbol(symbol) {
-    if (confirm(`Voulez-vous vraiment supprimer ${symbol} de la liste ?`)) {
-        watchlist = watchlist.filter(item => item.symbol !== symbol);
-        localStorage.setItem('watchlist', JSON.stringify(watchlist));
-        updateWatchlistTable(); // Reconstruire le tableau après suppression
-    }
-}
-
-// --- FONCTIONNALITÉS PRINCIPALES (AJOUT/AFFICHAGE) ---
-
-// Ajouter un symbole à la liste
-async function addSymbol() {
+async function getStockPrice() {
     const input = document.getElementById("symbol");
     const symbol = input.value.toUpperCase().trim();
-    if (!symbol) return alert("Veuillez entrer un symbole boursier.");
+    const resultDiv = document.getElementById("result");
+    const button = document.querySelector('button'); // Sélectionner le bouton
 
-    if (!watchlist.find(s => s.symbol === symbol)) {
-        watchlist.push({ symbol: symbol, shares: 0, dividend: 0 });
-        localStorage.setItem('watchlist', JSON.stringify(watchlist));
-        
-        // Mettre à jour le tableau pour afficher le nouveau symbole
-        updateWatchlistTable(); 
-        await updateQuoteForSymbol(symbol); // Récupérer le cours immédiatement
-    } else {
-        alert(`${symbol} est déjà dans la liste.`);
-    }
-    input.value = '';
-}
+    if (!symbol) return resultDiv.textContent = "Veuillez entrer un symbole boursier.";
 
-// Mettre à jour le tableau (structure HTML)
-function updateWatchlistTable() {
-    const tbody = document.querySelector("#watchlist-table tbody");
-    tbody.innerHTML = ''; 
+    resultDiv.innerHTML = "Chargement...";
+    button.disabled = true; // Désactiver le bouton pendant l'appel
 
-    watchlist.forEach((item) => {
-        const row = document.createElement('tr');
-        row.id = `row-${item.symbol}`; // ID unique pour mise à jour rapide
-
-        row.innerHTML = `
-            <td>${item.symbol}</td>
-            <td class="price">-</td> 
-            <td><input type="number" value="${item.shares}" min="0" onchange="updateShares('${item.symbol}', this.value)"></td>
-            <td><input type="number" value="${item.dividend}" min="0" step="0.01" onchange="updateDividend('${item.symbol}', this.value)"></td>
-            <td class="total-dividend">${(item.shares * item.dividend).toFixed(2)}</td>
-            <td><button class="delete-btn" onclick="deleteSymbol('${item.symbol}')">X</button></td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
-// --- FONCTIONS DE MISE À JOUR CIBLÉE (PERFORMANCE) ---
-
-// Mettre à jour le calcul des dividendes pour une ligne spécifique
-function updateRowCalculation(symbol) {
-    const item = watchlist.find(s => s.symbol === symbol);
-    const row = document.getElementById(`row-${symbol}`);
-    if (row && item) {
-        const totalDividendCell = row.querySelector('.total-dividend');
-        const total = (item.shares * item.dividend).toFixed(2);
-        totalDividendCell.textContent = total;
-    }
-}
-
-// Mettre à jour le cours pour UN symbole
-async function updateQuoteForSymbol(symbol) {
-    const row = document.getElementById(`row-${symbol}`);
-    if (!row) return;
-
-    const priceCell = row.querySelector('.price');
-    priceCell.textContent = '...'; 
-
-    const quote = await getStockQuote(symbol);
-
-    if (quote && quote.c) { // Finnhub utilise 'c' pour Current price
-        priceCell.textContent = parseFloat(quote.c).toFixed(2);
-    } else {
-        priceCell.textContent = 'N/A';
-    }
-}
-
-// Mettre à jour le cours pour TOUS les symboles
-async function updateAllQuotes() {
-    const resultDiv = document.getElementById('result');
-    resultDiv.textContent = "Actualisation des cours en cours...";
-
-    // Utilisation de Promise.all pour exécuter les requêtes en parallèle
-    const promises = watchlist.map(item => updateQuoteForSymbol(item.symbol));
-    await Promise.all(promises);
-
-    resultDiv.textContent = "Cours actualisés !";
-    setTimeout(() => resultDiv.textContent = '', 3000); // Effacer le message après 3s
-}
-
-
-// --- FONCTION D'APPEL AU PROXY SERVEUR ---
-
-// Récupérer les données de l’action via le proxy Finnhub
-async function getStockQuote(symbol) {
     try {
-        // Appel à votre endpoint proxy, qui contient la clé API
-        const url = `${PROXY_URL}/quote?symbol=${symbol}`;
-        const res = await fetch(url);
-        
-        if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
+        const apiKey = 'BUJ9ONXMDU2BK43K';
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
 
-        const data = await res.json();
-        
-        // Vérifier si Finnhub a retourné une erreur (ex: le symbole n'existe pas)
-        if (data.error) {
-            console.error(`Erreur Finnhub pour ${symbol}:`, data.error);
-            return null;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // Gestion de l'erreur d'API (ex: dépassement du taux d'appel)
+        if (data["Error Message"]) {
+             resultDiv.textContent = `Erreur API : ${data["Error Message"]}. Attendez une minute avant de réessayer.`;
+             return;
         }
 
-        // Finnhub retourne {c: current, h: high, l: low, o: open, pc: previous close}
-        return data; 
-    } catch(e) {
-        console.error(`Erreur de connexion au proxy ou d'API pour ${symbol}:`, e);
-        return null;
+        if (!data["Global Quote"] || !data["Global Quote"]["05. price"]) {
+            resultDiv.textContent = "Aucune donnée trouvée pour ce symbole (Symbole invalide ou pas de données disponibles).";
+            return;
+        }
+
+        const quote = data["Global Quote"];
+        
+        // Détermination simple de la devise (pas toujours précis sans information supplémentaire)
+        const currency = symbol.endsWith('.PA') ? 'EUR' : 'USD'; 
+
+        resultDiv.innerHTML = `
+            <strong>${symbol}</strong><br>
+            Prix actuel : <strong>${parseFloat(quote["05. price"]).toFixed(2)} ${currency}</strong><br>
+            Ouverture : ${parseFloat(quote["02. open"]).toFixed(2)} ${currency}<br>
+            Haut : ${parseFloat(quote["03. high"]).toFixed(2)} ${currency}<br>
+            Bas : ${parseFloat(quote["04. low"]).toFixed(2)} ${currency}<br>
+            Variation : ${parseFloat(quote["09. change"]).toFixed(2)} (${quote["10. change percent"]})
+        `;
+        input.value = ''; // Nettoyer le champ après succès
+
+    } catch (error) {
+        console.error(error);
+        resultDiv.textContent = "Erreur réseau lors de la récupération des données.";
+    } finally {
+        button.disabled = false; // Réactiver le bouton
     }
 }
-</script>
-
-</body>
-</html>
+// Ajout de l'écouteur d'événement pour la touche 'Enter'
+document.getElementById("symbol").addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        getStockPrice();
+    }
+});
