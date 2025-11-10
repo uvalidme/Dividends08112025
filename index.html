@@ -1,82 +1,61 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cours Boursiers</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 2rem;
-      background-color: #f5f5f5;
-    }
-    input, button {
-      padding: 0.5rem;
-      font-size: 1rem;
-    }
-    #result {
-      margin-top: 1rem;
-      padding: 1rem;
-      background: #fff;
-      border-radius: 5px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.2);
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi Bourse en Temps Réel</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 30px; background: #f4f4f4; color: #333; }
+    h1 { color: #2c3e50; }
+    input { padding: 8px; font-size: 16px; }
+    button { padding: 8px 12px; font-size: 16px; cursor: pointer; }
+    #result { margin-top: 20px; padding: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
+</style>
 </head>
 <body>
-  <h1>Cours Boursiers en Temps Réel</h1>
 
-  <input type="text" id="symbol" placeholder="Nom ou symbole de l'entreprise">
-  <button onclick="getStockPrice()">Rechercher</button>
+<h1>Suivi Bourse en Temps Réel</h1>
 
-  <div id="result"></div>
+<input type="text" id="symbol" placeholder="Symbole ex: AAPL ou TTE.PA">
+<button onclick="getStockPrice()">Afficher le cours</button>
 
-  <script>
-    // Mappage pour les noms français vers le symbole boursier
-    const companyMap = {
-      "LVMH": "MC.PA",
-      "DERICHEBOURG": "DBG.PA",
-      "AIRBUS": "AIR.PA",
-      "TOTALENERGIES": "TTE.PA"
-    };
+<div id="result"></div>
 
-    async function getStockPrice() {
-      const input = document.getElementById("symbol").value.toUpperCase().trim();
-      const resultDiv = document.getElementById("result");
+<script>
+async function getStockPrice() {
+    const symbol = document.getElementById("symbol").value.toUpperCase().trim();
+    const resultDiv = document.getElementById("result");
+    if (!symbol) return resultDiv.textContent = "Veuillez entrer un symbole boursier.";
 
-      if (!input) {
-        resultDiv.textContent = "Veuillez entrer un nom ou un symbole d'entreprise.";
-        return;
-      }
+    resultDiv.textContent = "Chargement...";
 
-      const symbol = companyMap[input] || input;
-      resultDiv.textContent = `Recherche du symbole : ${symbol}...`;
+    try {
+        const apiKey = 'BUJ9ONXMDU2BK43K'; // Ta clé Alpha Vantage
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
 
-      try {
-        const proxyUrl = `https://finnhub-proxy-wq5s.onrender.com/quote?symbol=${symbol}`;
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("Erreur réseau : " + response.status);
-
+        const response = await fetch(url);
         const data = await response.json();
 
-        if (!data.c) {
-          resultDiv.textContent = "Aucune donnée trouvée pour ce symbole.";
-          return;
+        if (!data["Global Quote"] || !data["Global Quote"]["05. price"]) {
+            resultDiv.textContent = "Aucune donnée trouvée pour ce symbole.";
+            return;
         }
 
+        const quote = data["Global Quote"];
         resultDiv.innerHTML = `
-          <strong>${input}</strong> (${symbol})<br>
-          Prix actuel : <strong>${data.c}</strong><br>
-          Ouverture : ${data.o}<br>
-          Haut : ${data.h}<br>
-          Bas : ${data.l}<br>
-          Variation : ${(data.d ?? 0).toFixed(2)} (${(data.dp ?? 0).toFixed(2)}%)
+            <strong>${symbol}</strong><br>
+            Prix actuel : <strong>${parseFloat(quote["05. price"]).toFixed(2)}</strong><br>
+            Ouverture : ${parseFloat(quote["02. open"]).toFixed(2)}<br>
+            Haut : ${parseFloat(quote["03. high"]).toFixed(2)}<br>
+            Bas : ${parseFloat(quote["04. low"]).toFixed(2)}<br>
+            Variation : ${parseFloat(quote["09. change"]).toFixed(2)} (${quote["10. change percent"]})
         `;
-      } catch (error) {
-        console.error("Erreur :", error);
+    } catch (error) {
+        console.error(error);
         resultDiv.textContent = "Erreur lors de la récupération des données.";
-      }
     }
-  </script>
+}
+</script>
+
 </body>
 </html>
