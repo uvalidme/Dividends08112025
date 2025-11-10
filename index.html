@@ -1,43 +1,79 @@
-<script>
-  async function getStockPrice() {
-    const symbol = document.getElementById("symbol").value.toUpperCase().trim();
-    const resultDiv = document.getElementById("result");
-    if (!symbol) {
-      resultDiv.textContent = "Veuillez entrer un symbole boursier.";
-      return;
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mon Suivi Boursier</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 60px;
     }
+    h1 { color: #333; }
+    input { padding: 8px; font-size: 16px; }
+    button {
+      padding: 8px 12px;
+      margin-left: 5px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background-color: #0056b3; }
+    #result { margin-top: 30px; font-size: 20px; color: #222; }
+  </style>
+</head>
+<body>
+  <h1>📈 Mon Suivi Boursier</h1>
+  <div>
+    <input type="text" id="symbol" placeholder="Ex : AAPL, TSLA..." />
+    <button onclick="getStockPrice()">Voir le cours</button>
+  </div>
+  <div id="result"></div>
 
-    resultDiv.textContent = "Chargement...";
-
-    try {
-      const apiKey = "d47squhr01qk80bicmq0d47squhr01qk80bicmqg"; // ✅ ta clé API entre guillemets
-      const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
-      console.log("URL de requête :", url); // 👀 utile pour le debug
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("Réponse API :", data); // 👀 on voit ce que l’API renvoie dans la console
-
-      if (!data.c) {
-        resultDiv.textContent = "Aucune donnée trouvée pour ce symbole.";
+  <!-- SCRIPT placé ici -->
+  <script>
+    async function getStockPrice() {
+      const symbol = document.getElementById("symbol").value.toUpperCase().trim();
+      const resultDiv = document.getElementById("result");
+      if (!symbol) {
+        resultDiv.textContent = "Veuillez entrer un symbole boursier.";
         return;
       }
 
-      resultDiv.innerHTML = `
-        <strong>${symbol}</strong><br>
-        Prix actuel : <strong>${data.c}</strong><br>
-        Ouverture : ${data.o}<br>
-        Haut : ${data.h}<br>
-        Bas : ${data.l}<br>
-        Variation : ${(data.d ?? 0).toFixed(2)} (${(data.dp ?? 0).toFixed(2)}%)
-      `;
-    } catch (error) {
-      console.error("Erreur :", error);
-      resultDiv.textContent = "Erreur lors de la récupération des données.";
+      resultDiv.textContent = "Chargement...";
+
+      try {
+        const apiKey = "d47squhr01qk80bicmq0d47squhr01qk80bicmqg";
+        const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
+        console.log("URL :", url);
+        const response = await fetch(url);
+        const data = await response.json();
+        console.log("Réponse :", data);
+
+        if (!data.c) {
+          resultDiv.textContent = "Aucune donnée trouvée pour ce symbole.";
+          return;
+        }
+
+        resultDiv.innerHTML = `
+          <strong>${symbol}</strong><br>
+          Prix actuel : <strong>${data.c}</strong><br>
+          Ouverture : ${data.o}<br>
+          Haut : ${data.h}<br>
+          Bas : ${data.l}<br>
+          Variation : ${(data.d ?? 0).toFixed(2)} (${(data.dp ?? 0).toFixed(2)}%)
+        `;
+      } catch (error) {
+        console.error(error);
+        resultDiv.textContent = "Erreur lors de la récupération des données.";
+      }
     }
-  }
-</script>
+  </script>
+</body>
+</html>
