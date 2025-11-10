@@ -5,126 +5,379 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suivi Bourse avec Dividendes</title>
 <style>
-    body { font-family: Arial, sans-serif; margin: 30px; background: #f4f4f4; color: #333; }
-    h1, h2 { color: #2c3e50; }
-    input, button { padding: 6px 8px; font-size: 14px; }
-    button { cursor: pointer; }
-    #result { margin-top: 20px; padding: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
-    th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
-    th { background: #f0f0f0; }
-    input[type="number"] { width: 60px; }
+body { font-family: Arial, sans-serif; margin: 30px; background: #f4f4f4; color: #333; }
+h1, h2 { color: #2c3e50; }
+.header-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+input, button { padding: 8px 12px; font-size: 14px; border: 1px solid #ddd; border-radius: 4px; }
+button { cursor: pointer; background: #3498db; color: white; border: none; }
+button:hover { background: #2980b9; }
+button:disabled { background: #95a5a6; cursor: not-allowed; }
+.btn-danger { background: #e74c3c; }
+.btn-danger:hover { background: #c0392b; }
+.btn-refresh { background: #27ae60; }
+.btn-refresh:hover { background: #229954; }
+#status { padding: 10px; margin: 10px 0; border-radius: 4px; display: none; }
+.status-error { background: #ffebee; color: #c62828; display: block; }
+.status-success { background: #e8f5e9; color: #2e7d32; display: block; }
+.status-info { background: #e3f2fd; color: #1565c0; display: block; }
+table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
+th, td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; }
+th { background: #34495e; color: white; font-weight: 600; }
+input[type="number"] { width: 80px; }
+.loading { color: #95a5a6; font-style: italic; }
+.price-up { color: #27ae60; }
+.price-down { color: #e74c3c; }
+.summary { background: #fff; padding: 15px; border-radius: 5px; box-shadow: 0 0 5px #ccc; margin-top: 20px; }
+.summary h3 { margin-top: 0; color: #2c3e50; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+.summary-item { padding: 10px; background: #ecf0f1; border-radius: 4px; }
+.summary-item label { font-size: 12px; color: #7f8c8d; display: block; margin-bottom: 5px; }
+.summary-item value { font-size: 20px; font-weight: bold; color: #2c3e50; }
 </style>
 </head>
 <body>
 
-<h1>Suivi Bourse avec Dividendes</h1>
+<h1>📊 Suivi Bourse avec Dividendes</h1>
 
-<input type="text" id="symbol" placeholder="Symbole ex: AAPL ou TTE.PA">
-<button onclick="addSymbol()">Ajouter</button>
+<div class="header-controls">
+    <input type="text" id="symbol" placeholder="Symbole ex: AAPL ou TTE.PA">
+    <input type="text" id="apikey" placeholder="Votre clé API Alpha Vantage" style="flex: 1;">
+    <button onclick="addSymbol()" id="add-btn">Ajouter</button>
+    <button onclick="refreshAllPrices()" class="btn-refresh" id="refresh-btn">🔄 Actualiser</button>
+</div>
 
-<div id="result"></div>
+<div id="status"></div>
+
+<div class="summary">
+    <h3>Résumé du Portefeuille</h3>
+    <div class="summary-grid">
+        <div class="summary-item">
+            <label>Dividendes Annuels Totaux</label>
+            <value id="total-dividends">0.00 €</value>
+        </div>
+        <div class="summary-item">
+            <label>Nombre d'Actions</label>
+            <value id="total-stocks">0</value>
+        </div>
+        <div class="summary-item">
+            <label>Dernière Mise à Jour</label>
+            <value id="last-update">Jamais</value>
+        </div>
+    </div>
+</div>
 
 <h2>Liste de suivi</h2>
 <table id="watchlist-table">
-    <thead>
-        <tr>
-            <th>Symbole</th>
-            <th>Nom</th>
-            <th>Cours (€/$)</th>
-            <th>Actions détenues</th>
-            <th>Montant Dividendes</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
+<thead>
+<tr>
+    <th>Symbole</th>
+    <th>Nom</th>
+    <th>Cours</th>
+    <th>Devise</th>
+    <th>Actions détenues</th>
+    <th>Dividende/action</th>
+    <th>Total Dividendes</th>
+    <th>Action</th>
+</tr>
+</thead>
+<tbody></tbody>
 </table>
 
 <script>
-const apiKey = 'BUJ9ONXMDU2BK43K';
-let watchlist = JSON.parse(localStorage.getItem('watchlist')) || [];
-updateWatchlistTable();
+// État de l'application
+let watchlist = [];
+let priceCache = {};
+let apiKey = '';
+let lastApiCall = 0;
+const API_DELAY = 12000; // 12 secondes entre chaque appel (5 appels/minute max)
+
+// Initialisation
+init();
+
+function init() {
+    loadFromMemory();
+    updateWatchlistTable();
+    updateSummary();
+}
+
+// Gestion mémoire (remplace localStorage)
+function saveToMemory() {
+    // Les données persistent en mémoire pendant la session
+    // Pour une vraie persistance, l'utilisateur devra exporter/importer
+}
+
+function loadFromMemory() {
+    // Charger depuis la mémoire de session
+    if (!watchlist.length) {
+        watchlist = [];
+    }
+}
+
+// Afficher un message de statut
+function showStatus(message, type = 'info') {
+    const statusDiv = document.getElementById('status');
+    statusDiv.textContent = message;
+    statusDiv.className = `status-${type}`;
+    
+    if (type === 'success' || type === 'info') {
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 5000);
+    }
+}
 
 // Ajouter un symbole à la liste
 async function addSymbol() {
     const input = document.getElementById("symbol");
+    const apiKeyInput = document.getElementById("apikey");
     const symbol = input.value.toUpperCase().trim();
-    if (!symbol) return alert("Veuillez entrer un symbole boursier.");
-    if (!watchlist.find(s => s.symbol === symbol)) {
-        watchlist.push({ symbol: symbol, shares: 0, dividend: 0 });
-        localStorage.setItem('watchlist', JSON.stringify(watchlist));
-        await updateWatchlistTable();
+    
+    if (!apiKeyInput.value.trim()) {
+        return showStatus("⚠️ Veuillez entrer votre clé API Alpha Vantage", 'error');
     }
-    input.value = '';
+    
+    apiKey = apiKeyInput.value.trim();
+    
+    if (!symbol) {
+        return showStatus("⚠️ Veuillez entrer un symbole boursier", 'error');
+    }
+    
+    if (watchlist.find(s => s.symbol === symbol)) {
+        return showStatus("⚠️ Ce symbole est déjà dans votre liste", 'error');
+    }
+    
+    // Désactiver le bouton pendant le chargement
+    const addBtn = document.getElementById('add-btn');
+    addBtn.disabled = true;
+    addBtn.textContent = 'Chargement...';
+    
+    try {
+        // Vérifier que le symbole existe
+        const quote = await getStockQuote(symbol);
+        const name = await getSymbolName(symbol);
+        
+        if (!quote) {
+            showStatus(`❌ Symbole "${symbol}" introuvable ou erreur API`, 'error');
+            addBtn.disabled = false;
+            addBtn.textContent = 'Ajouter';
+            return;
+        }
+        
+        watchlist.push({ 
+            symbol: symbol, 
+            shares: 0, 
+            dividend: 0,
+            name: name || symbol,
+            price: quote.price || 0,
+            currency: quote.currency || '?'
+        });
+        
+        saveToMemory();
+        updateWatchlistTable();
+        updateSummary();
+        input.value = '';
+        showStatus(`✅ ${symbol} ajouté avec succès`, 'success');
+        
+    } catch (error) {
+        showStatus(`❌ Erreur: ${error.message}`, 'error');
+    }
+    
+    addBtn.disabled = false;
+    addBtn.textContent = 'Ajouter';
+}
+
+// Actualiser tous les prix
+async function refreshAllPrices() {
+    if (!apiKey) {
+        return showStatus("⚠️ Veuillez entrer votre clé API", 'error');
+    }
+    
+    const refreshBtn = document.getElementById('refresh-btn');
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '🔄 Chargement...';
+    
+    showStatus(`🔄 Actualisation de ${watchlist.length} actions...`, 'info');
+    
+    for (let i = 0; i < watchlist.length; i++) {
+        const item = watchlist[i];
+        try {
+            const quote = await getStockQuote(item.symbol);
+            if (quote) {
+                item.price = quote.price;
+                item.currency = quote.currency;
+                updateRowPrice(item.symbol, quote.price, quote.currency);
+            }
+        } catch (error) {
+            console.error(`Erreur pour ${item.symbol}:`, error);
+        }
+    }
+    
+    saveToMemory();
+    updateSummary();
+    refreshBtn.disabled = false;
+    refreshBtn.textContent = '🔄 Actualiser';
+    showStatus('✅ Actualisation terminée', 'success');
 }
 
 // Mettre à jour le tableau
-async function updateWatchlistTable() {
+function updateWatchlistTable() {
     const tbody = document.querySelector("#watchlist-table tbody");
     tbody.innerHTML = '';
 
-    watchlist.forEach(async (item) => {
-        // S'assurer que shares et dividend ne sont jamais undefined
+    if (watchlist.length === 0) {
+        const row = tbody.insertRow();
+        row.innerHTML = '<td colspan="8" style="text-align: center; color: #95a5a6; padding: 30px;">Aucune action dans votre liste. Ajoutez-en une ci-dessus.</td>';
+        return;
+    }
+
+    watchlist.forEach((item) => {
         item.shares = Number(item.shares) || 0;
         item.dividend = Number(item.dividend) || 0;
 
-        const row = document.createElement('tr');
+        const row = tbody.insertRow();
+        row.id = `row-${item.symbol}`;
         row.innerHTML = `
-            <td>${item.symbol}</td>
-            <td class="name">-</td>
-            <td class="price">-</td>
+            <td><strong>${item.symbol}</strong></td>
+            <td class="name">${item.name || '-'}</td>
+            <td class="price">${item.price ? item.price.toFixed(2) : '-'}</td>
+            <td class="currency">${item.currency || '-'}</td>
             <td><input type="number" value="${item.shares}" min="0" onchange="updateShares('${item.symbol}', this.value)"></td>
-            <td class="dividend">-</td>
+            <td><input type="number" value="${item.dividend}" min="0" step="0.01" onchange="updateDividend('${item.symbol}', this.value)"></td>
+            <td class="total-dividend"><strong>${(item.shares * item.dividend).toFixed(2)}</strong></td>
+            <td><button class="btn-danger" onclick="removeSymbol('${item.symbol}')">🗑️</button></td>
         `;
-        tbody.appendChild(row);
-
-        // récupérer le cours
-        const quote = await getStockQuote(item.symbol);
-        const name = await getSymbolName(item.symbol);
-        const priceCell = row.querySelector('.price');
-        const nameCell = row.querySelector('.name');
-        const dividendCell = row.querySelector('.dividend');
-
-        if (quote && quote["05. price"]) priceCell.textContent = parseFloat(quote["05. price"]).toFixed(2);
-        if (name) nameCell.textContent = name;
-        dividendCell.textContent = item.shares && quote ? (item.shares * (item.dividend || 0)).toFixed(2) : '0';
     });
+}
+
+// Mettre à jour une ligne de prix spécifique
+function updateRowPrice(symbol, price, currency) {
+    const row = document.getElementById(`row-${symbol}`);
+    if (row) {
+        row.querySelector('.price').textContent = price.toFixed(2);
+        row.querySelector('.currency').textContent = currency;
+    }
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString('fr-FR');
 }
 
 // Mettre à jour le nombre d'actions
 function updateShares(symbol, value) {
-    const index = watchlist.findIndex(s => s.symbol === symbol);
-    if (index >= 0) {
-        watchlist[index].shares = Number(value) || 0;
-        localStorage.setItem('watchlist', JSON.stringify(watchlist));
-        updateWatchlistTable();
+    const item = watchlist.find(s => s.symbol === symbol);
+    if (item) {
+        item.shares = Number(value) || 0;
+        saveToMemory();
+        updateRowTotalDividend(symbol);
+        updateSummary();
     }
 }
 
-// Récupérer les données de l’action
+// Mettre à jour le dividende par action
+function updateDividend(symbol, value) {
+    const item = watchlist.find(s => s.symbol === symbol);
+    if (item) {
+        item.dividend = Number(value) || 0;
+        saveToMemory();
+        updateRowTotalDividend(symbol);
+        updateSummary();
+    }
+}
+
+// Mettre à jour seulement la cellule du total dividende
+function updateRowTotalDividend(symbol) {
+    const item = watchlist.find(s => s.symbol === symbol);
+    const row = document.getElementById(`row-${symbol}`);
+    if (row && item) {
+        row.querySelector('.total-dividend').innerHTML = `<strong>${(item.shares * item.dividend).toFixed(2)}</strong>`;
+    }
+}
+
+// Supprimer un symbole
+function removeSymbol(symbol) {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer ${symbol} ?`)) {
+        watchlist = watchlist.filter(s => s.symbol !== symbol);
+        saveToMemory();
+        updateWatchlistTable();
+        updateSummary();
+        showStatus(`🗑️ ${symbol} supprimé`, 'info');
+    }
+}
+
+// Mettre à jour le résumé
+function updateSummary() {
+    const totalDividends = watchlist.reduce((sum, item) => sum + (item.shares * item.dividend), 0);
+    const totalStocks = watchlist.length;
+    
+    document.getElementById('total-dividends').textContent = totalDividends.toFixed(2) + ' €';
+    document.getElementById('total-stocks').textContent = totalStocks;
+}
+
+// Gérer le rate limiting (maximum 5 appels/minute)
+async function waitForRateLimit() {
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCall;
+    
+    if (timeSinceLastCall < API_DELAY) {
+        const waitTime = API_DELAY - timeSinceLastCall;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    lastApiCall = Date.now();
+}
+
+// Récupérer les données de l'action avec cache et rate limiting
 async function getStockQuote(symbol) {
+    // Vérifier le cache (valide 5 minutes)
+    if (priceCache[symbol] && (Date.now() - priceCache[symbol].timestamp < 300000)) {
+        return priceCache[symbol].data;
+    }
+    
+    await waitForRateLimit();
+    
     try {
         const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
         const res = await fetch(url);
         const data = await res.json();
-        if (data["Global Quote"] && data["Global Quote"]["05. price"]) return data["Global Quote"];
+        
+        if (data.Note) {
+            throw new Error("Limite d'API atteinte. Attendez 1 minute.");
+        }
+        
+        if (data["Global Quote"] && data["Global Quote"]["05. price"]) {
+            const quote = {
+                price: parseFloat(data["Global Quote"]["05. price"]),
+                currency: symbol.includes('.PA') ? '€' : '$'
+            };
+            
+            // Mettre en cache
+            priceCache[symbol] = {
+                data: quote,
+                timestamp: Date.now()
+            };
+            
+            return quote;
+        }
         return null;
     } catch(e) {
-        console.error(e);
-        return null;
+        console.error('Erreur API:', e);
+        throw e;
     }
 }
 
-// Récupérer le nom complet de l’action
+// Récupérer le nom complet de l'action
 async function getSymbolName(symbol) {
+    await waitForRateLimit();
+    
     try {
         const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${symbol}&apikey=${apiKey}`;
         const res = await fetch(url);
         const data = await res.json();
-        if (data.bestMatches && data.bestMatches.length > 0) return data.bestMatches[0]["2. name"];
-        return '';
+        
+        if (data.bestMatches && data.bestMatches.length > 0) {
+            return data.bestMatches[0]["2. name"];
+        }
+        return symbol;
     } catch(e) {
-        console.error(e);
-        return '';
+        console.error('Erreur recherche nom:', e);
+        return symbol;
     }
 }
 </script>
