@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi Bourse avec Liste</title>
+<style>
+    body { font-family: Arial, sans-serif; margin: 30px; background: #f4f4f4; color: #333; }
+    h1 { color: #2c3e50; }
+    input { padding: 8px; font-size: 16px; }
+    button { padding: 8px 12px; font-size: 16px; cursor: pointer; margin-left: 5px; }
+    #result { margin-top: 20px; padding: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
+    #watchlist { margin-top: 20px; padding: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
+    .symbol { cursor: pointer; padding: 5px; margin: 2px 0; border-bottom: 1px solid #eee; }
+    .symbol:hover { background: #f0f0f0; }
+</style>
+</head>
+<body>
+
+<h1>Suivi Bourse en Temps Réel</h1>
+
+<input type="text" id="symbol" placeholder="Symbole ex: AAPL ou TTE.PA">
+<button onclick="addSymbol()">Ajouter à la liste</button>
+
+<div id="result"></div>
+
+<h2>Liste de suivi</h2>
+<div id="watchlist"></div>
+
+<script>
+const apiKey = 'BUJ9ONXMDU2BK43K';
+
+// Charger la liste depuis localStorage
+let watchlist = JSON.parse(localStorage.getItem('watchlist')) || [];
+updateWatchlist();
+
+// Ajouter un symbole à la liste
+function addSymbol() {
+    const input = document.getElementById("symbol");
+    const symbol = input.value.toUpperCase().trim();
+    if (!symbol) return alert("Veuillez entrer un symbole boursier.");
+    if (!watchlist.includes(symbol)) {
+        watchlist.push(symbol);
+        localStorage.setItem('watchlist', JSON.stringify(watchlist));
+        updateWatchlist();
+    }
+    input.value = '';
+    getStockPrice(symbol);
+}
+
+// Mettre à jour l’affichage de la liste
+function updateWatchlist() {
+    const container = document.getElementById("watchlist");
+    container.innerHTML = '';
+    watchlist.forEach(sym => {
+        const div = document.createElement('div');
+        div.textContent = sym;
+        div.className = 'symbol';
+        div.onclick = () => getStockPrice(sym);
+        container.appendChild(div);
+    });
+}
+
+// Récupérer le cours d’une action
+async function getStockPrice(symbol) {
+    const resultDiv = document.getElementById("result");
+    resultDiv.textContent = "Chargement...";
+
+    try {
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data["Global Quote"] || !data["Global Quote"]["05. price"]) {
+            resultDiv.textContent = "Aucune donnée trouvée pour ce symbole.";
+            return;
+        }
+
+        const quote = data["Global Quote"];
+        resultDiv.innerHTML = `
+            <strong>${symbol}</strong><br>
+            Prix actuel : <strong>${parseFloat(quote["05. price"]).toFixed(2)}</strong><br>
+            Ouverture : ${parseFloat(quote["02. open"]).toFixed(2)}<br>
+            Haut : ${parseFloat(quote["03. high"]).toFixed(2)}<br>
+            Bas : ${parseFloat(quote["04. low"]).toFixed(2)}<br>
+            Variation : ${parseFloat(quote["09. change"]).toFixed(2)} (${quote["10. change percent"]})
+        `;
+    } catch (error) {
+        console.error(error);
+        resultDiv.textContent = "Erreur lors de la récupération des données.";
+    }
+}
+
+// Optionnel : afficher les données pour le premier symbole de la liste au chargement
+if (watchlist.length > 0) getStockPrice(watchlist[0]);
+</script>
+
+</body>
+</html>
