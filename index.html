@@ -37,7 +37,6 @@
   <div id="result"></div>
 
   <script>
-    // Dictionnaire des symboles connus (pour faciliter la recherche par nom)
     const companyMap = {
       "DERICHEBOURG": "DBG.PA",
       "LVMH": "MC.PA",
@@ -66,7 +65,6 @@
         return;
       }
 
-      // Si l'utilisateur tape un nom connu, on le convertit en symbole
       const symbol = companyMap[input] || input;
       resultDiv.textContent = `Recherche du symbole : ${symbol}...`;
 
@@ -74,8 +72,8 @@
         const apiKey = "d47squhr01qk80bicmq0d47squhr01qk80bicmqg";
         const apiUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
 
-        // ✅ Passage par le proxy AllOrigins pour éviter le blocage CORS/403
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+        // ✅ Nouveau proxy compatible GitHub Pages
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`;
 
         const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error("Erreur réseau : " + response.status);
@@ -101,7 +99,6 @@
       }
     }
 
-    // ✅ Le bouton déclenche bien la fonction
     document.getElementById("searchBtn").addEventListener("click", getStockPrice);
   </script>
 </body>
