@@ -42,4 +42,59 @@
       "DERICHEBOURG": "DBG.PA",
       "LVMH": "MC.PA",
       "BNP": "BNP.PA",
-      "BNP PARIBAS": "BN
+      "BNP PARIBAS": "BNP.PA",
+      "TOTAL": "TTE.PA",
+      "TOTALENERGIES": "TTE.PA",
+      "RENAULT": "RNO.PA",
+      "PEUGEOT": "STLA.PA",
+      "STMICROELECTRONICS": "STM.PA",
+      "SAFRAN": "SAF.PA",
+      "AIRBUS": "AIR.PA",
+      "DANONE": "BN.PA",
+      "ORANGE": "ORA.PA",
+      "CARREFOUR": "CA.PA",
+      "ENGIE": "ENGI.PA",
+      "BOUYGUES": "EN.PA"
+    };
+
+    async function getStockPrice() {
+      const input = document.getElementById("symbol").value.toUpperCase().trim();
+      const resultDiv = document.getElementById("result");
+
+      if (!input) {
+        resultDiv.textContent = "Veuillez entrer un nom ou un symbole d'entreprise.";
+        return;
+      }
+
+      // Vérifie si l'utilisateur a tapé un nom connu
+      const symbol = companyMap[input] || input; // si pas trouvé, garde la saisie
+      resultDiv.textContent = `Recherche du symbole : ${symbol}...`;
+
+      try {
+        const apiKey = "d47squhr01qk80bicmq0d47squhr01qk80bicmqg";
+        const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data.c) {
+          resultDiv.textContent = "Aucune donnée trouvée pour ce symbole.";
+          return;
+        }
+
+        resultDiv.innerHTML = `
+          <strong>${input}</strong> (${symbol})<br>
+          Prix actuel : <strong>${data.c}</strong><br>
+          Ouverture : ${data.o}<br>
+          Haut : ${data.h}<br>
+          Bas : ${data.l}<br>
+          Variation : ${(data.d ?? 0).toFixed(2)} (${(data.dp ?? 0).toFixed(2)}%)
+        `;
+      } catch (error) {
+        console.error(error);
+        resultDiv.textContent = "Erreur lors de la récupération des données.";
+      }
+    }
+  </script>
+</body>
+</html>
