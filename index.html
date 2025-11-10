@@ -32,10 +32,11 @@
   <h1>📈 Mon Suivi Boursier</h1>
   <div>
     <input type="text" id="symbol" placeholder="Ex : AAPL, Derichebourg, LVMH..." />
-    <button onclick="getStockPrice()">Voir le cours</button>
+    <button id="searchBtn">Voir le cours</button>
   </div>
   <div id="result"></div>
 
+  <!-- Le script est bien à la fin du body -->
   <script>
     // Dictionnaire symboles connus
     const companyMap = {
@@ -66,8 +67,8 @@
         return;
       }
 
-      // Vérifie si l'utilisateur a tapé un nom connu
-      const symbol = companyMap[input] || input; // si pas trouvé, garde la saisie
+      // Vérifie si c'est un nom connu
+      const symbol = companyMap[input] || input;
       resultDiv.textContent = `Recherche du symbole : ${symbol}...`;
 
       try {
@@ -95,6 +96,9 @@
         resultDiv.textContent = "Erreur lors de la récupération des données.";
       }
     }
+
+    // Ajoute un événement propre au bouton (meilleur que onclick)
+    document.getElementById("searchBtn").addEventListener("click", getStockPrice);
   </script>
 </body>
 </html>
