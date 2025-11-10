@@ -35,6 +35,7 @@ input[type="number"] { width: 70px; }
     <th>Actions détenues</th>
     <th>Dividende par action</th>
     <th>Total Dividendes</th>
+    <th>Supprimer</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -58,6 +59,13 @@ async function addSymbol() {
     input.value = '';
 }
 
+// Supprimer un symbole
+function removeSymbol(symbol) {
+    watchlist = watchlist.filter(s => s.symbol !== symbol);
+    localStorage.setItem('watchlist', JSON.stringify(watchlist));
+    updateWatchlistTable();
+}
+
 // Mettre à jour le tableau
 async function updateWatchlistTable() {
     const tbody = document.querySelector("#watchlist-table tbody");
@@ -75,6 +83,7 @@ async function updateWatchlistTable() {
             <td><input type="number" value="${sharesValue}" min="0" onchange="updateShares('${item.symbol}', this.value)"></td>
             <td><input type="number" value="${dividendValue}" min="0" step="0.01" onchange="updateDividend('${item.symbol}', this.value)"></td>
             <td class="total-dividend">0</td>
+            <td><button onclick="removeSymbol('${item.symbol}')">Supprimer</button></td>
         `;
         tbody.appendChild(row);
 
@@ -84,18 +93,15 @@ async function updateWatchlistTable() {
         const nameCell = row.querySelector('.name');
         const totalDividendCell = row.querySelector('.total-dividend');
 
-        // afficher le prix si disponible
         if (quote && quote["05. price"]) {
             priceCell.textContent = parseFloat(quote["05. price"]).toFixed(2);
         } else {
             priceCell.textContent = "-";
         }
 
-        // récupérer le nom de l'action
         const name = await getSymbolName(item.symbol);
-        nameCell.textContent = name || item.symbol; // fallback au symbole
+        nameCell.textContent = name || item.symbol;
 
-        // calcul du total dividendes
         totalDividendCell.textContent = (sharesValue * dividendValue).toFixed(2);
     });
 }
@@ -134,7 +140,7 @@ async function getStockQuote(symbol) {
     }
 }
 
-// Récupérer le nom complet de l’action (fallback possible)
+// Récupérer le nom complet de l’action
 async function getSymbolName(symbol) {
     try {
         const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${symbol}&apikey=${apiKey}`;
