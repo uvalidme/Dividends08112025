@@ -36,9 +36,8 @@
   </div>
   <div id="result"></div>
 
-  <!-- Le script est bien à la fin du body -->
   <script>
-    // Dictionnaire symboles connus
+    // Dictionnaire des symboles connus (pour faciliter la recherche par nom)
     const companyMap = {
       "DERICHEBOURG": "DBG.PA",
       "LVMH": "MC.PA",
@@ -67,15 +66,20 @@
         return;
       }
 
-      // Vérifie si c'est un nom connu
+      // Si l'utilisateur tape un nom connu, on le convertit en symbole
       const symbol = companyMap[input] || input;
       resultDiv.textContent = `Recherche du symbole : ${symbol}...`;
 
       try {
         const apiKey = "d47squhr01qk80bicmq0d47squhr01qk80bicmqg";
-        const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
+        const apiUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
 
-        const response = await fetch(url);
+        // ✅ Passage par le proxy AllOrigins pour éviter le blocage CORS/403
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error("Erreur réseau : " + response.status);
+
         const data = await response.json();
 
         if (!data.c) {
@@ -92,12 +96,12 @@
           Variation : ${(data.d ?? 0).toFixed(2)} (${(data.dp ?? 0).toFixed(2)}%)
         `;
       } catch (error) {
-        console.error(error);
+        console.error("Erreur :", error);
         resultDiv.textContent = "Erreur lors de la récupération des données.";
       }
     }
 
-    // Ajoute un événement propre au bouton (meilleur que onclick)
+    // ✅ Le bouton déclenche bien la fonction
     document.getElementById("searchBtn").addEventListener("click", getStockPrice);
   </script>
 </body>
