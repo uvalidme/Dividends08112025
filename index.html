@@ -3,96 +3,121 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Suivi Bourse avec Liste</title>
+<title>Suivi Bourse avec Dividendes</title>
 <style>
     body { font-family: Arial, sans-serif; margin: 30px; background: #f4f4f4; color: #333; }
-    h1 { color: #2c3e50; }
-    input { padding: 8px; font-size: 16px; }
-    button { padding: 8px 12px; font-size: 16px; cursor: pointer; margin-left: 5px; }
+    h1, h2 { color: #2c3e50; }
+    input, button { padding: 6px 8px; font-size: 14px; }
+    button { cursor: pointer; }
     #result { margin-top: 20px; padding: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
-    #watchlist { margin-top: 20px; padding: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
-    .symbol { cursor: pointer; padding: 5px; margin: 2px 0; border-bottom: 1px solid #eee; }
-    .symbol:hover { background: #f0f0f0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #fff; border-radius: 5px; box-shadow: 0 0 5px #ccc; }
+    th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
+    th { background: #f0f0f0; }
+    input[type="number"] { width: 60px; }
 </style>
 </head>
 <body>
 
-<h1>Suivi Bourse en Temps Réel</h1>
+<h1>Suivi Bourse avec Dividendes</h1>
 
 <input type="text" id="symbol" placeholder="Symbole ex: AAPL ou TTE.PA">
-<button onclick="addSymbol()">Ajouter à la liste</button>
+<button onclick="addSymbol()">Ajouter</button>
 
 <div id="result"></div>
 
 <h2>Liste de suivi</h2>
-<div id="watchlist"></div>
+<table id="watchlist-table">
+    <thead>
+        <tr>
+            <th>Symbole</th>
+            <th>Nom</th>
+            <th>Cours (€/$)</th>
+            <th>Actions détenues</th>
+            <th>Montant Dividendes</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
 
 <script>
 const apiKey = 'BUJ9ONXMDU2BK43K';
-
-// Charger la liste depuis localStorage
 let watchlist = JSON.parse(localStorage.getItem('watchlist')) || [];
-updateWatchlist();
+updateWatchlistTable();
 
-// Ajouter un symbole à la liste
-function addSymbol() {
+async function addSymbol() {
     const input = document.getElementById("symbol");
     const symbol = input.value.toUpperCase().trim();
     if (!symbol) return alert("Veuillez entrer un symbole boursier.");
-    if (!watchlist.includes(symbol)) {
-        watchlist.push(symbol);
+    if (!watchlist.find(s => s.symbol === symbol)) {
+        watchlist.push({ symbol: symbol, shares: 0, dividend: 0 });
         localStorage.setItem('watchlist', JSON.stringify(watchlist));
-        updateWatchlist();
+        await updateWatchlistTable();
     }
     input.value = '';
-    getStockPrice(symbol);
 }
 
-// Mettre à jour l’affichage de la liste
-function updateWatchlist() {
-    const container = document.getElementById("watchlist");
-    container.innerHTML = '';
-    watchlist.forEach(sym => {
-        const div = document.createElement('div');
-        div.textContent = sym;
-        div.className = 'symbol';
-        div.onclick = () => getStockPrice(sym);
-        container.appendChild(div);
-    });
-}
+// Mettre à jour le tableau
+async function updateWatchlistTable() {
+    const tbody = document.querySelector("#watchlist-table tbody");
+    tbody.innerHTML = '';
+    for (const item of watchlist) {
+        const quote = await getStockQuote(item.symbol);
+        const name = await getSymbolName(item.symbol);
+        const row = document.createElement('tr');
 
-// Récupérer le cours d’une action
-async function getStockPrice(symbol) {
-    const resultDiv = document.getElementById("result");
-    resultDiv.textContent = "Chargement...";
-
-    try {
-        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (!data["Global Quote"] || !data["Global Quote"]["05. price"]) {
-            resultDiv.textContent = "Aucune donnée trouvée pour ce symbole.";
-            return;
-        }
-
-        const quote = data["Global Quote"];
-        resultDiv.innerHTML = `
-            <strong>${symbol}</strong><br>
-            Prix actuel : <strong>${parseFloat(quote["05. price"]).toFixed(2)}</strong><br>
-            Ouverture : ${parseFloat(quote["02. open"]).toFixed(2)}<br>
-            Haut : ${parseFloat(quote["03. high"]).toFixed(2)}<br>
-            Bas : ${parseFloat(quote["04. low"]).toFixed(2)}<br>
-            Variation : ${parseFloat(quote["09. change"]).toFixed(2)} (${quote["10. change percent"]})
+        row.innerHTML = `
+            <td>${item.symbol}</td>
+            <td>${name || '-'}</td>
+            <td>${quote ? parseFloat(quote["05. price"]).toFixed(2) : '-'}</td>
+            <td><input type="number" value="${item.shares}" min="0" onchange="updateShares('${item.symbol}', this.value)"></td>
+            <td>${quote ? (item.shares * (item.dividend || 0)).toFixed(2) : '-'}</td>
         `;
-    } catch (error) {
-        console.error(error);
-        resultDiv.textContent = "Erreur lors de la récupération des données.";
+
+        tbody.appendChild(row);
     }
 }
 
-// Optionnel : afficher les données pour le premier symbole de la liste au chargement
-if (watchlist.length > 0) getStockPrice(watchlist[0]);
+// Mettre à jour le nombre d'actions
+function updateShares(symbol, value) {
+    const index = watchlist.findIndex(s => s.symbol === symbol);
+    if (index >= 0) {
+        watchlist[index].shares = parseFloat(value) || 0;
+        localStorage.setItem('watchlist', JSON.stringify(watchlist));
+        updateWatchlistTable();
+    }
+}
+
+// Récupérer les données de l’action
+async function getStockQuote(symbol) {
+    try {
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data["Global Quote"] && data["Global Quote"]["05. price"]) return data["Global Quote"];
+        return null;
+    } catch(e) {
+        console.error(e);
+        return null;
+    }
+}
+
+// Récupérer le nom complet de l’action
+async function getSymbolName(symbol) {
+    try {
+        const url = `https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${symbol}&apikey=${apiKey}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.bestMatches && data.bestMatches.length > 0) return data.bestMatches[0]["2. name"];
+        return '';
+    } catch(e) {
+        console.error(e);
+        return '';
+    }
+}
+
+// Optionnel : tu peux pré-remplir un dividende fixe pour chaque action si tu veux
+// watchlist[i].dividend = 1.5;
+
 </script>
 
 </body>
