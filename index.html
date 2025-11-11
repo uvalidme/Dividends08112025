@@ -32,14 +32,22 @@
 </table>
 
 <script>
-// Fonction pour récupérer les données depuis Stooq
+const PROXY_URL = "https://finnhub-proxy-wq5s.onrender.com/stooq";
+
+// Liste des noms complets pour les principales actions
+const STOCK_NAMES = {
+  "TTE.PA": "TotalEnergies",
+  "MC.PA": "LVMH",
+  "AIR.PA": "Airbus",
+  "AAPL": "Apple",
+  "MSFT": "Microsoft",
+  "GOOGL": "Alphabet"
+};
+
 async function getStockInfo(symbol) {
   try {
-    let fixedSymbol = symbol.trim().toUpperCase();
-    if (fixedSymbol.endsWith(".PA")) fixedSymbol = fixedSymbol.replace(".PA", ".FR");
-    if (fixedSymbol.endsWith(".US") || fixedSymbol.endsWith(".FR")) fixedSymbol = fixedSymbol.toLowerCase();
-
-    const url = `https://stooq.com/q/d/l/?s=${fixedSymbol}&f=sd2t2ohlcvn&e=csv`;
+    const fixedSymbol = symbol.trim().toUpperCase();
+    const url = `${PROXY_URL}?symbol=${fixedSymbol}`;
     const response = await fetch(url);
     const text = await response.text();
 
@@ -54,12 +62,8 @@ async function getStockInfo(symbol) {
 
     return {
       symbol: stock.symbol.toUpperCase(),
-      name: stock.symbol.toUpperCase(), // Stooq ne donne pas le nom complet
-      price: parseFloat(stock.close),
-      open: parseFloat(stock.open),
-      high: parseFloat(stock.high),
-      low: parseFloat(stock.low),
-      volume: parseInt(stock.volume)
+      name: STOCK_NAMES[fixedSymbol] || stock.symbol.toUpperCase(),
+      price: parseFloat(stock.close)
     };
   } catch (e) {
     console.error("Erreur récupération Stooq :", e);
@@ -67,7 +71,6 @@ async function getStockInfo(symbol) {
   }
 }
 
-// Ajouter une action à la liste
 async function addStock() {
   const input = document.getElementById("symbolInput");
   const symbol = input.value.trim();
@@ -93,12 +96,10 @@ async function addStock() {
   input.value = "";
 }
 
-// Supprimer une ligne
 function deleteRow(button) {
   const row = button.closest("tr");
   row.remove();
 }
-
 </script>
 </body>
 </html>
