@@ -13,7 +13,7 @@
 
 <h1>Suivi des actions</h1>
 
-<input type="text" id="symbol" placeholder="Symbole ex: AAPL">
+<input type="text" id="symbol" placeholder="Symbole ex: AAPL, TTE.PA">
 <button onclick="addSymbol()">Ajouter</button>
 
 <table id="watchlistTable">
@@ -31,10 +31,24 @@
 </table>
 
 <script>
-const API_KEY = 'BUJ9ONXMDU2BK43K'; // Ta clé AlphaVantage
+const API_KEY = 'BUJ9ONXMDU2BK43K'; // ta clé AlphaVantage
 let watchlist = JSON.parse(localStorage.getItem('watchlist')) || [];
 
-// Met à jour le tableau
+// --- 🔹 Récupère le nom de la société ---
+async function getCompanyName(symbol) {
+    try {
+        const response = await fetch(`https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${symbol}&apikey=${API_KEY}`);
+        const data = await response.json();
+        if (data.bestMatches && data.bestMatches.length > 0) {
+            return data.bestMatches[0]['2. name'] || symbol;
+        }
+    } catch (e) {
+        console.error("Erreur nom société :", e);
+    }
+    return symbol; // fallback
+}
+
+// --- 🔹 Met à jour le tableau principal ---
 async function updateWatchlistTable() {
     const tbody = document.querySelector("#watchlistTable tbody");
     tbody.innerHTML = '';
@@ -42,8 +56,15 @@ async function updateWatchlistTable() {
     for (let i = 0; i < watchlist.length; i++) {
         const item = watchlist[i];
         let price = '-';
-        let name = item.symbol || '-';
+        let name = item.name || item.symbol || '-';
 
+        // Si le nom n'est pas encore stocké, on va le chercher une fois
+        if (!item.name && item.symbol) {
+            item.name = await getCompanyName(item.symbol);
+            localStorage.setItem('watchlist', JSON.stringify(watchlist));
+        }
+
+        // Récupérer le prix
         if (item.symbol) {
             try {
                 const response = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${item.symbol}&apikey=${API_KEY}`);
@@ -59,7 +80,7 @@ async function updateWatchlistTable() {
         tbody.innerHTML += `
             <tr>
                 <td>${item.symbol || '-'}</td>
-                <td>${name}</td>
+                <td>${item.name || '-'}</td>
                 <td>${price}</td>
                 <td><input type="number" min="0" value="${item.quantity || 0}" onchange="updateQuantity(${i}, this.value)"></td>
                 <td><input type="number" min="0" value="${item.dividends || 0}" onchange="updateDividends(${i}, this.value)"></td>
@@ -69,37 +90,40 @@ async function updateWatchlistTable() {
     }
 }
 
-// Ajouter un symbole
-function addSymbol() {
+// --- 🔹 Ajouter un symbole ---
+async function addSymbol() {
     const symbolInput = document.getElementById('symbol');
     const symbol = symbolInput.value.toUpperCase().trim();
     if (!symbol) return alert("Symbole invalide.");
-    watchlist.push({ symbol, quantity: 0, dividends: 0 });
+    
+    // Cherche le nom de la société
+    const name = await getCompanyName(symbol);
+    watchlist.push({ symbol, name, quantity: 0, dividends: 0 });
     localStorage.setItem('watchlist', JSON.stringify(watchlist));
     symbolInput.value = '';
     updateWatchlistTable();
 }
 
-// Supprimer par index (fonctionne même si symbole undefined)
+// --- 🔹 Supprimer par index ---
 function removeSymbolByIndex(index) {
     watchlist.splice(index, 1);
     localStorage.setItem('watchlist', JSON.stringify(watchlist));
     updateWatchlistTable();
 }
 
-// Mettre à jour la quantité
+// --- 🔹 Mettre à jour les quantités ---
 function updateQuantity(index, value) {
     watchlist[index].quantity = parseFloat(value) || 0;
     localStorage.setItem('watchlist', JSON.stringify(watchlist));
 }
 
-// Mettre à jour les dividendes
+// --- 🔹 Mettre à jour les dividendes ---
 function updateDividends(index, value) {
     watchlist[index].dividends = parseFloat(value) || 0;
     localStorage.setItem('watchlist', JSON.stringify(watchlist));
 }
 
-// Initialisation
+// --- 🔹 Démarrage ---
 updateWatchlistTable();
 </script>
 
